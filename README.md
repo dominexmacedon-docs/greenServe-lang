@@ -9,8 +9,8 @@ The Linux release can be installed directly from the published `greenServe-v1.0.
 ### Makefile
 
 ```makefile
-GREEN_SERVE_VERSION := v1.0.0
-GREEN_SERVE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.0/greenServe-linux-x86_64.zip
+GREEN_SERVE_VERSION := v1.0.1
+GREEN_SERVE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.1/greenServe-linux-x86_64.zip
 INSTALL_DIR := /usr/local/bin
 TMP_DIR := /tmp/greenServe-install
 ZIP_FILE := $(TMP_DIR)/greenServe-linux-x86_64.zip
@@ -50,7 +50,7 @@ sudo make install
 The Makefile downloads:
 
 ```text
-https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.0/greenServe-linux-x86_64.zip
+https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.1/greenServe-linux-x86_64.zip
 ```
 
 It extracts the release and installs the executable as:
@@ -111,7 +111,7 @@ This removes the system-wide `greenServe` executable.
 
 Current Linux release:
 
-- Version: `greenServe-v1.0.0`
+- Version: `greenServe-v1.0.1`
 - Platform: Linux x86_64
 - Archive: `greenServe-linux-x86_64.zip`
 
