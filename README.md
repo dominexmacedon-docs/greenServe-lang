@@ -4,7 +4,7 @@ greenServe is the programming language specially built for server implementation
 
 ## Install on Linux
 
-The Linux release can be installed directly from the published `greenServe-v1.0.0` release. The Makefile below downloads the release, extracts it, installs the `greenServe` executable into a system-wide directory, and makes it available from any folder.
+The Linux release can be installed directly from the published `greenServe-v1.0.1` release. The Makefile below downloads the release, extracts it, installs the `greenServe` executable into a system-wide directory, and makes it available from any folder.
 
 ### Makefile
 
