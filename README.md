@@ -12,20 +12,22 @@ The Linux release can be installed directly from the published `greenServe-v1.0.
 GREEN_SERVE_VERSION := v1.0.1
 
 GREEN_SERVE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.1/greenServe-linux-x86_64.zip
-GREEN_SERVE_ICON_URL := https://raw.githubusercontent.com/dominexmacedon-docs/greenServe-lang/main/greenServe.ico
+
+GREEN_SERVE_VSCODE_VERSION := v1.0.0
+GREEN_SERVE_VSCODE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-vscode-extension-v1.0.0/greenServe-vscode-f6ebc673df0d4993459813708aa5f911411e3766.zip
 
 INSTALL_DIR := /usr/local/bin
 SHARE_DIR := /usr/local/share/greenServe
-ICON_DIR := /usr/local/share/icons/hicolor/256x256/apps
 
-ICON_FILE := $(SHARE_DIR)/greenServe.ico
-DESKTOP_FILE := /usr/share/applications/greenServe.desktop
-MIME_FILE := /usr/share/mime/packages/greenserve.xml
+VS_CODE_EXTENSION_DIR := /usr/share/code/extensions
+CODE_SERVER_EXTENSION_DIR := /usr/share/code-server/extensions
 
 TMP_DIR := /tmp/greenServe-install
-ZIP_FILE := $(TMP_DIR)/greenServe-linux-x86_64.zip
 
-.PHONY: install uninstall clean
+GREEN_SERVE_ZIP := $(TMP_DIR)/greenServe-linux-x86_64.zip
+GREEN_SERVE_VSCODE_ZIP := $(TMP_DIR)/greenServe-vscode-extension.zip
+
+.PHONY: install install-language install-vscode uninstall clean
 
 install:
 	@set -e; \
@@ -42,84 +44,172 @@ install:
 		echo "Error: unzip is required."; \
 		exit 1; \
 	}; \
-	echo "Installing greenServe $(GREEN_SERVE_VERSION)..."; \
+	echo ""; \
+	echo "========================================"; \
+	echo " Installing greenServe"; \
+	echo "========================================"; \
+	echo ""; \
 	rm -rf "$(TMP_DIR)"; \
-	mkdir -p "$(TMP_DIR)/extracted"; \
+	mkdir -p "$(TMP_DIR)/greenServe"; \
+	mkdir -p "$(TMP_DIR)/vscode"; \
+	mkdir -p "$(INSTALL_DIR)"; \
 	mkdir -p "$(SHARE_DIR)"; \
-	mkdir -p "$(ICON_DIR)"; \
-	echo "Downloading greenServe..."; \
-	curl -fL "$(GREEN_SERVE_URL)" -o "$(ZIP_FILE)"; \
+	\
+	echo "Downloading greenServe $(GREEN_SERVE_VERSION)..."; \
+	curl -fL "$(GREEN_SERVE_URL)" -o "$(GREEN_SERVE_ZIP)"; \
+	\
 	echo "Extracting greenServe..."; \
-	unzip -o "$(ZIP_FILE)" -d "$(TMP_DIR)/extracted" >/dev/null; \
-	BINARY=$$(find "$(TMP_DIR)/extracted" -type f -name greenServe -print -quit); \
+	unzip -o "$(GREEN_SERVE_ZIP)" -d "$(TMP_DIR)/greenServe" >/dev/null; \
+	\
+	BINARY=$$(find "$(TMP_DIR)/greenServe" -type f -name greenServe -print -quit); \
 	if [ -z "$$BINARY" ]; then \
 		echo "Error: greenServe binary was not found in the release archive."; \
 		rm -rf "$(TMP_DIR)"; \
 		exit 1; \
 	fi; \
-	echo "Installing executable..."; \
+	\
+	echo "Installing greenServe executable..."; \
 	install -m 755 "$$BINARY" "$(INSTALL_DIR)/greenServe"; \
-	echo "Downloading greenServe.ico..."; \
-	curl -fL "$(GREEN_SERVE_ICON_URL)" -o "$(ICON_FILE)"; \
-	chmod 644 "$(ICON_FILE)"; \
-	echo "Creating greenServe MIME type..."; \
-	cat > "$(MIME_FILE)" <<'EOF' \
-<?xml version="1.0" encoding="UTF-8"?> \
-<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info"> \
-  <mime-type type="text/x-gsve"> \
-    <comment>greenServe source file</comment> \
-    <glob pattern="*.gsve"/> \
-  </mime-type> \
-</mime-info> \
-EOF \
-	echo "Creating desktop file association..."; \
-	cat > "$(DESKTOP_FILE)" <<EOF \
-[Desktop Entry] \
-Name=greenServe \
-GenericName=greenServe Programming Language \
-Comment=greenServe programming language interpreter \
-Exec=$(INSTALL_DIR)/greenServe %f \
-Icon=$(ICON_FILE) \
-Terminal=true \
-Type=Application \
-Categories=Development;Programming; \
-MimeType=text/x-gsve; \
-NoDisplay=false \
-StartupNotify=false \
-EOF \
-	echo "Updating MIME database..."; \
-	if command -v update-mime-database >/dev/null 2>&1; then \
-		update-mime-database /usr/share/mime >/dev/null 2>&1 || true; \
+	\
+	echo ""; \
+	echo "greenServe language installed."; \
+	echo "  Executable: $(INSTALL_DIR)/greenServe"; \
+	echo ""; \
+	\
+	echo "Downloading greenServe VS Code extension $(GREEN_SERVE_VSCODE_VERSION)..."; \
+	curl -fL "$(GREEN_SERVE_VSCODE_URL)" -o "$(GREEN_SERVE_VSCODE_ZIP)"; \
+	\
+	echo "Extracting VS Code extension..."; \
+	unzip -o "$(GREEN_SERVE_VSCODE_ZIP)" -d "$(TMP_DIR)/vscode" >/dev/null; \
+	\
+	VSIX=$$(find "$(TMP_DIR)/vscode" -type f -name '*.vsix' -print -quit); \
+	if [ -n "$$VSIX" ]; then \
+		echo "Found VSIX package: $$VSIX"; \
+		\
+		command -v code >/dev/null 2>&1 || { \
+			echo "Error: VS Code command 'code' was not found."; \
+			echo "The VSIX was downloaded, but automatic installation could not continue."; \
+			rm -rf "$(TMP_DIR)"; \
+			exit 1; \
+		}; \
+		\
+		echo "Installing VS Code extension..."; \
+		code --install-extension "$$VSIX" --force; \
+	else \
+		echo "No .vsix file found in the extension archive."; \
+		echo "Checking for an already-extracted VS Code extension..."; \
+		\
+		EXT_DIR=$$(find "$(TMP_DIR)/vscode" -mindepth 1 -maxdepth 2 -type f -name package.json -printf '%h\n' -quit); \
+		if [ -z "$$EXT_DIR" ]; then \
+			echo "Error: VS Code extension package was not found."; \
+			rm -rf "$(TMP_DIR)"; \
+			exit 1; \
+		fi; \
+		\
+		echo "Installing extracted VS Code extension..."; \
+		mkdir -p "$(VS_CODE_EXTENSION_DIR)"; \
+		EXT_NAME=$$(basename "$$EXT_DIR"); \
+		rm -rf "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
+		cp -a "$$EXT_DIR" "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
 	fi; \
-	echo "Updating desktop database..."; \
-	if command -v update-desktop-database >/dev/null 2>&1; then \
-		update-desktop-database /usr/share/applications >/dev/null 2>&1 || true; \
+	\
+	rm -rf "$(TMP_DIR)"; \
+	\
+	echo ""; \
+	echo "========================================"; \
+	echo " Installation completed"; \
+	echo "========================================"; \
+	echo ""; \
+	echo "greenServe:"; \
+	echo "  Version: $(GREEN_SERVE_VERSION)"; \
+	echo "  Executable: $(INSTALL_DIR)/greenServe"; \
+	echo ""; \
+	echo "VS Code extension:"; \
+	echo "  Version: $(GREEN_SERVE_VSCODE_VERSION)"; \
+	echo "  Source: $(GREEN_SERVE_VSCODE_URL)"; \
+	echo ""; \
+	echo "Installed successfully."; \
+	echo ""; \
+	"$(INSTALL_DIR)/greenServe" --version
+
+install-language:
+	@set -e; \
+	if [ "$$(id -u)" -ne 0 ]; then \
+		echo "Error: installation requires root privileges."; \
+		echo "Run: sudo make install-language"; \
+		exit 1; \
 	fi; \
-	echo "Refreshing icon cache..."; \
-	if command -v gtk-update-icon-cache >/dev/null 2>&1; then \
-		gtk-update-icon-cache -f -t /usr/local/share/icons/hicolor >/dev/null 2>&1 || true; \
+	command -v curl >/dev/null 2>&1 || { \
+		echo "Error: curl is required."; \
+		exit 1; \
+	}; \
+	command -v unzip >/dev/null 2>&1 || { \
+		echo "Error: unzip is required."; \
+		exit 1; \
+	}; \
+	rm -rf "$(TMP_DIR)"; \
+	mkdir -p "$(TMP_DIR)/greenServe"; \
+	mkdir -p "$(SHARE_DIR)"; \
+	echo "Downloading greenServe $(GREEN_SERVE_VERSION)..."; \
+	curl -fL "$(GREEN_SERVE_URL)" -o "$(GREEN_SERVE_ZIP)"; \
+	echo "Extracting greenServe..."; \
+	unzip -o "$(GREEN_SERVE_ZIP)" -d "$(TMP_DIR)/greenServe" >/dev/null; \
+	BINARY=$$(find "$(TMP_DIR)/greenServe" -type f -name greenServe -print -quit); \
+	if [ -z "$$BINARY" ]; then \
+		echo "Error: greenServe binary was not found in the release archive."; \
+		rm -rf "$(TMP_DIR)"; \
+		exit 1; \
+	fi; \
+	install -m 755 "$$BINARY" "$(INSTALL_DIR)/greenServe"; \
+	rm -rf "$(TMP_DIR)"; \
+	echo "greenServe $(GREEN_SERVE_VERSION) installed."; \
+	"$(INSTALL_DIR)/greenServe" --version
+
+install-vscode:
+	@set -e; \
+	if [ "$$(id -u)" -ne 0 ]; then \
+		echo "Error: installation requires root privileges."; \
+		echo "Run: sudo make install-vscode"; \
+		exit 1; \
+	fi; \
+	command -v curl >/dev/null 2>&1 || { \
+		echo "Error: curl is required."; \
+		exit 1; \
+	}; \
+	command -v unzip >/dev/null 2>&1 || { \
+		echo "Error: unzip is required."; \
+		exit 1; \
+	}; \
+	rm -rf "$(TMP_DIR)"; \
+	mkdir -p "$(TMP_DIR)/vscode"; \
+	echo "Downloading greenServe VS Code extension $(GREEN_SERVE_VSCODE_VERSION)..."; \
+	curl -fL "$(GREEN_SERVE_VSCODE_URL)" -o "$(GREEN_SERVE_VSCODE_ZIP)"; \
+	echo "Extracting VS Code extension archive..."; \
+	unzip -o "$(GREEN_SERVE_VSCODE_ZIP)" -d "$(TMP_DIR)/vscode" >/dev/null; \
+	VSIX=$$(find "$(TMP_DIR)/vscode" -type f -name '*.vsix' -print -quit); \
+	if [ -n "$$VSIX" ]; then \
+		if command -v code >/dev/null 2>&1; then \
+			echo "Installing VS Code extension with code..."; \
+			code --install-extension "$$VSIX" --force; \
+		else \
+			echo "Error: VS Code command 'code' was not found."; \
+			rm -rf "$(TMP_DIR)"; \
+			exit 1; \
+		fi; \
+	else \
+		EXT_DIR=$$(find "$(TMP_DIR)/vscode" -mindepth 1 -maxdepth 2 -type f -name package.json -printf '%h\n' -quit); \
+		if [ -z "$$EXT_DIR" ]; then \
+			echo "Error: VS Code extension package was not found."; \
+			rm -rf "$(TMP_DIR)"; \
+			exit 1; \
+		fi; \
+		mkdir -p "$(VS_CODE_EXTENSION_DIR)"; \
+		EXT_NAME=$$(basename "$$EXT_DIR"); \
+		rm -rf "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
+		cp -a "$$EXT_DIR" "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
 	fi; \
 	rm -rf "$(TMP_DIR)"; \
-	echo ""; \
-	echo "greenServe $(GREEN_SERVE_VERSION) installed successfully."; \
-	echo ""; \
-	echo "Executable:"; \
-	echo "  $(INSTALL_DIR)/greenServe"; \
-	echo ""; \
-	echo "Icon:"; \
-	echo "  $(ICON_FILE)"; \
-	echo ""; \
-	echo "File extension:"; \
-	echo "  *.gsve"; \
-	echo ""; \
-	echo "MIME type:"; \
-	echo "  text/x-gsve"; \
-	echo ""; \
-	echo "Desktop association:"; \
-	echo "  $(DESKTOP_FILE)"; \
-	echo ""; \
-	echo "Version:"; \
-	"$(INSTALL_DIR)/greenServe" --version
+	echo "greenServe VS Code extension installed."
 
 uninstall:
 	@set -e; \
@@ -130,20 +220,17 @@ uninstall:
 	fi; \
 	echo "Removing greenServe..."; \
 	rm -f "$(INSTALL_DIR)/greenServe"; \
-	rm -f "$(ICON_FILE)"; \
-	rm -f "$(DESKTOP_FILE)"; \
-	rm -f "$(MIME_FILE)"; \
-	rmdir "$(SHARE_DIR)" 2>/dev/null || true; \
-	if command -v update-mime-database >/dev/null 2>&1; then \
-		update-mime-database /usr/share/mime >/dev/null 2>&1 || true; \
+	\
+	if command -v code >/dev/null 2>&1; then \
+		code --uninstall-extension greenserve-language >/dev/null 2>&1 || true; \
 	fi; \
-	if command -v update-desktop-database >/dev/null 2>&1; then \
-		update-desktop-database /usr/share/applications >/dev/null 2>&1 || true; \
-	fi; \
-	if command -v gtk-update-icon-cache >/dev/null 2>&1; then \
-		gtk-update-icon-cache -f -t /usr/local/share/icons/hicolor >/dev/null 2>&1 || true; \
-	fi; \
-	echo "greenServe has been completely removed."
+	\
+	rm -rf "$(VS_CODE_EXTENSION_DIR)/greenserve-language"*; \
+	rm -rf "$(CODE_SERVER_EXTENSION_DIR)/greenserve-language"*; \
+	rm -rf "$(SHARE_DIR)"; \
+	rm -rf "$(TMP_DIR)"; \
+	\
+	echo "greenServe and its VS Code extension have been removed."
 
 clean:
 	rm -rf "$(TMP_DIR)"
