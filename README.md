@@ -14,18 +14,18 @@ GREEN_SERVE_VERSION := v1.0.1
 GREEN_SERVE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.1/greenServe-linux-x86_64.zip
 
 GREEN_SERVE_VSCODE_VERSION := v1.0.0
-GREEN_SERVE_VSCODE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-vscode-extension-v1.0.0/greenServe-vscode-f6ebc673df0d4993459813708aa5f911411e3766.zip
+GREEN_SERVE_VSCODE_URL := https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-vscode-extension-v1.0.0/greenServe-vscode-4c2320012566325b325b76d4aa25020205be0182.zip
 
 INSTALL_DIR := /usr/local/bin
 SHARE_DIR := /usr/local/share/greenServe
-
-VS_CODE_EXTENSION_DIR := /usr/share/code/extensions
-CODE_SERVER_EXTENSION_DIR := /usr/share/code-server/extensions
 
 TMP_DIR := /tmp/greenServe-install
 
 GREEN_SERVE_ZIP := $(TMP_DIR)/greenServe-linux-x86_64.zip
 GREEN_SERVE_VSCODE_ZIP := $(TMP_DIR)/greenServe-vscode-extension.zip
+
+EXTENSION_ID := dominexmacedon.greenserve-language
+EXTENSION_INSTALL_FILE := $(SHARE_DIR)/greenServe-vscode-extension.vsix
 
 .PHONY: install install-language install-vscode uninstall clean
 
@@ -44,6 +44,10 @@ install:
 		echo "Error: unzip is required."; \
 		exit 1; \
 	}; \
+	command -v code >/dev/null 2>&1 || { \
+		echo "Error: VS Code command 'code' was not found."; \
+		exit 1; \
+	}; \
 	echo ""; \
 	echo "========================================"; \
 	echo " Installing greenServe"; \
@@ -51,8 +55,7 @@ install:
 	echo ""; \
 	rm -rf "$(TMP_DIR)"; \
 	mkdir -p "$(TMP_DIR)/greenServe"; \
-	mkdir -p "$(TMP_DIR)/vscode"; \
-	mkdir -p "$(INSTALL_DIR)"; \
+	mkdir -p "$(TMP_DIR)/extracted"; \
 	mkdir -p "$(SHARE_DIR)"; \
 	\
 	echo "Downloading greenServe $(GREEN_SERVE_VERSION)..."; \
@@ -76,44 +79,43 @@ install:
 	echo "  Executable: $(INSTALL_DIR)/greenServe"; \
 	echo ""; \
 	\
-	echo "Downloading greenServe VS Code extension $(GREEN_SERVE_VSCODE_VERSION)..."; \
-	curl -fL "$(GREEN_SERVE_VSCODE_URL)" -o "$(GREEN_SERVE_VSCODE_ZIP)"; \
+	echo "==> Removing existing greenServe extension..."; \
+	code --uninstall-extension "$(EXTENSION_ID)" >/dev/null 2>&1 || true; \
 	\
-	echo "Extracting VS Code extension..."; \
-	unzip -o "$(GREEN_SERVE_VSCODE_ZIP)" -d "$(TMP_DIR)/vscode" >/dev/null; \
+	echo "==> Removing old greenServe extension directories..."; \
+	rm -rf "$$HOME/.vscode-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
+	rm -rf "$$HOME/.local/share/code-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
 	\
-	VSIX=$$(find "$(TMP_DIR)/vscode" -type f -name '*.vsix' -print -quit); \
-	if [ -n "$$VSIX" ]; then \
-		echo "Found VSIX package: $$VSIX"; \
-		\
-		command -v code >/dev/null 2>&1 || { \
-			echo "Error: VS Code command 'code' was not found."; \
-			echo "The VSIX was downloaded, but automatic installation could not continue."; \
-			rm -rf "$(TMP_DIR)"; \
-			exit 1; \
-		}; \
-		\
-		echo "Installing VS Code extension..."; \
-		code --install-extension "$$VSIX" --force; \
-	else \
-		echo "No .vsix file found in the extension archive."; \
-		echo "Checking for an already-extracted VS Code extension..."; \
-		\
-		EXT_DIR=$$(find "$(TMP_DIR)/vscode" -mindepth 1 -maxdepth 2 -type f -name package.json -printf '%h\n' -quit); \
-		if [ -z "$$EXT_DIR" ]; then \
-			echo "Error: VS Code extension package was not found."; \
-			rm -rf "$(TMP_DIR)"; \
-			exit 1; \
-		fi; \
-		\
-		echo "Installing extracted VS Code extension..."; \
-		mkdir -p "$(VS_CODE_EXTENSION_DIR)"; \
-		EXT_NAME=$$(basename "$$EXT_DIR"); \
-		rm -rf "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
-		cp -a "$$EXT_DIR" "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
+	TEMP_DIR="$$(mktemp -d)"; \
+	trap 'rm -rf "$$TEMP_DIR"' EXIT; \
+	\
+	echo "==> Downloading greenServe VS Code extension $(GREEN_SERVE_VSCODE_VERSION)..."; \
+	curl -fL "$(GREEN_SERVE_VSCODE_URL)" -o "$$TEMP_DIR/greenServe.zip"; \
+	\
+	echo "==> Extracting extension ZIP..."; \
+	unzip -q "$$TEMP_DIR/greenServe.zip" -d "$$TEMP_DIR/extracted"; \
+	\
+	echo "==> Finding VSIX..."; \
+	VSIX_FILE="$$(find "$$TEMP_DIR/extracted" -type f -name "*.vsix" -print -quit)"; \
+	if [ -z "$$VSIX_FILE" ]; then \
+		echo "ERROR: No VSIX file found."; \
+		exit 1; \
 	fi; \
 	\
-	rm -rf "$(TMP_DIR)"; \
+	echo "VSIX:"; \
+	echo "$$VSIX_FILE"; \
+	\
+	echo "==> Installing VSIX..."; \
+	sudo mkdir -p "$(SHARE_DIR)"; \
+	sudo cp "$$VSIX_FILE" "$(EXTENSION_INSTALL_FILE)"; \
+	code --install-extension "$(EXTENSION_INSTALL_FILE)" --force; \
+	\
+	echo "==> Installed extension:"; \
+	code --list-extensions --show-versions | grep -i "greenserve" || true; \
+	\
+	echo "==> Cleaning temporary files..."; \
+	rm -rf "$$TEMP_DIR"; \
+	trap - EXIT; \
 	\
 	echo ""; \
 	echo "========================================"; \
@@ -126,9 +128,14 @@ install:
 	echo ""; \
 	echo "VS Code extension:"; \
 	echo "  Version: $(GREEN_SERVE_VSCODE_VERSION)"; \
+	echo "  Extension ID: $(EXTENSION_ID)"; \
 	echo "  Source: $(GREEN_SERVE_VSCODE_URL)"; \
 	echo ""; \
 	echo "Installed successfully."; \
+	echo ""; \
+	echo "Reload VS Code:"; \
+	echo "  Ctrl+Shift+P"; \
+	echo "  Developer: Reload Window"; \
 	echo ""; \
 	"$(INSTALL_DIR)/greenServe" --version
 
@@ -180,36 +187,62 @@ install-vscode:
 		echo "Error: unzip is required."; \
 		exit 1; \
 	}; \
-	rm -rf "$(TMP_DIR)"; \
-	mkdir -p "$(TMP_DIR)/vscode"; \
-	echo "Downloading greenServe VS Code extension $(GREEN_SERVE_VSCODE_VERSION)..."; \
-	curl -fL "$(GREEN_SERVE_VSCODE_URL)" -o "$(GREEN_SERVE_VSCODE_ZIP)"; \
-	echo "Extracting VS Code extension archive..."; \
-	unzip -o "$(GREEN_SERVE_VSCODE_ZIP)" -d "$(TMP_DIR)/vscode" >/dev/null; \
-	VSIX=$$(find "$(TMP_DIR)/vscode" -type f -name '*.vsix' -print -quit); \
-	if [ -n "$$VSIX" ]; then \
-		if command -v code >/dev/null 2>&1; then \
-			echo "Installing VS Code extension with code..."; \
-			code --install-extension "$$VSIX" --force; \
-		else \
-			echo "Error: VS Code command 'code' was not found."; \
-			rm -rf "$(TMP_DIR)"; \
-			exit 1; \
-		fi; \
-	else \
-		EXT_DIR=$$(find "$(TMP_DIR)/vscode" -mindepth 1 -maxdepth 2 -type f -name package.json -printf '%h\n' -quit); \
-		if [ -z "$$EXT_DIR" ]; then \
-			echo "Error: VS Code extension package was not found."; \
-			rm -rf "$(TMP_DIR)"; \
-			exit 1; \
-		fi; \
-		mkdir -p "$(VS_CODE_EXTENSION_DIR)"; \
-		EXT_NAME=$$(basename "$$EXT_DIR"); \
-		rm -rf "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
-		cp -a "$$EXT_DIR" "$(VS_CODE_EXTENSION_DIR)/$$EXT_NAME"; \
+	command -v code >/dev/null 2>&1 || { \
+		echo "Error: VS Code command 'code' was not found."; \
+		exit 1; \
+	}; \
+	\
+	EXTENSION_ID="$(EXTENSION_ID)"; \
+	ZIP_URL="$(GREEN_SERVE_VSCODE_URL)"; \
+	TEMP_DIR="$$(mktemp -d)"; \
+	INSTALL_DIR="$(SHARE_DIR)"; \
+	\
+	trap 'rm -rf "$$TEMP_DIR"' EXIT; \
+	\
+	echo "==> Removing existing greenServe extension..."; \
+	code --uninstall-extension "$$EXTENSION_ID" >/dev/null 2>&1 || true; \
+	\
+	echo "==> Removing old greenServe extension directories..."; \
+	rm -rf "$$HOME/.vscode-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
+	rm -rf "$$HOME/.local/share/code-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
+	\
+	echo "==> Downloading extension ZIP..."; \
+	curl -fL "$$ZIP_URL" -o "$$TEMP_DIR/greenServe.zip"; \
+	\
+	echo "==> Extracting ZIP..."; \
+	unzip -q "$$TEMP_DIR/greenServe.zip" -d "$$TEMP_DIR/extracted"; \
+	\
+	echo "==> Finding VSIX..."; \
+	VSIX_FILE="$$(find "$$TEMP_DIR/extracted" -type f -name "*.vsix" -print -quit)"; \
+	\
+	if [ -z "$$VSIX_FILE" ]; then \
+		echo "ERROR: No VSIX file found."; \
+		exit 1; \
 	fi; \
-	rm -rf "$(TMP_DIR)"; \
-	echo "greenServe VS Code extension installed."
+	\
+	echo "VSIX:"; \
+	echo "$$VSIX_FILE"; \
+	\
+	echo "==> Installing VSIX..."; \
+	sudo mkdir -p "$$INSTALL_DIR"; \
+	sudo cp "$$VSIX_FILE" "$$INSTALL_DIR/greenServe-vscode-extension.vsix"; \
+	code --install-extension \
+		"$$INSTALL_DIR/greenServe-vscode-extension.vsix" \
+		--force; \
+	\
+	echo "==> Installed extension:"; \
+	code --list-extensions --show-versions | grep -i "greenserve" || true; \
+	\
+	echo "==> Cleaning temporary files..."; \
+	rm -rf "$$TEMP_DIR"; \
+	trap - EXIT; \
+	\
+	echo ""; \
+	echo "greenServe extension installed successfully."; \
+	echo ""; \
+	echo "Reload VS Code:"; \
+	echo "Ctrl+Shift+P"; \
+	echo "Developer: Reload Window"
 
 uninstall:
 	@set -e; \
@@ -222,11 +255,11 @@ uninstall:
 	rm -f "$(INSTALL_DIR)/greenServe"; \
 	\
 	if command -v code >/dev/null 2>&1; then \
-		code --uninstall-extension greenserve-language >/dev/null 2>&1 || true; \
+		code --uninstall-extension "$(EXTENSION_ID)" >/dev/null 2>&1 || true; \
 	fi; \
 	\
-	rm -rf "$(VS_CODE_EXTENSION_DIR)/greenserve-language"*; \
-	rm -rf "$(CODE_SERVER_EXTENSION_DIR)/greenserve-language"*; \
+	rm -rf "$$HOME/.vscode-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
+	rm -rf "$$HOME/.local/share/code-server/extensions/dominexmacedon.greenserve-language-"* 2>/dev/null || true; \
 	rm -rf "$(SHARE_DIR)"; \
 	rm -rf "$(TMP_DIR)"; \
 	\
