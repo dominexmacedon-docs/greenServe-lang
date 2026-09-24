@@ -16,7 +16,7 @@ GREEN_SERVE_EXTENSION_VERSION="v1.0.0"
 
 GREEN_SERVE_URL="https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-v1.0.1/greenServe-linux-x86_64.zip"
 
-GREEN_SERVE_EXTENSION_URL="https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-vscode-extension-v1.0.0/greenServe-vscode-5f0270f875024058c4d7ea97ec5f466aa097ebd0.zip"
+GREEN_SERVE_EXTENSION_URL="https://github.com/dominexmacedon-docs/greenServe-lang/releases/download/greenServe-vscode-extension-v1.0.0/greenServe-vscode-f0be003d2c94c6d1c044a127db2dbec1e55dbb36.zip"
 
 GREEN_SERVE_COMMAND="greenServe"
 GREEN_SERVE_EXTENSION_ID="dominexmacedon.greenserve-language"
